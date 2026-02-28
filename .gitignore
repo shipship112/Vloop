@@ -36,7 +36,7 @@ go.work.sum
 picture/
 
 #txt
-.txt
+*.txt
 
 #markdown
-.md
+*.md

@@ -1,0 +1,29 @@
+项目经历
+Vloop -短视频Feed流系统 | 独立开发 | Go + Gin + GORM + MySQL + Redis + RabbitMQ
+项目描述:
+开发一款高性能短视频Feed流系统,实现账号管理、视频发布、点赞评论、关注社交和Feed流等核心功能。采用RabbitMQ异步架构削峰填谷,Redis多级缓存提升性能,支持API进程与Worker进程拆分部署,具备高并发处理能力。
+核心职责与技术亮点:
+1. Feed流分页优化
+  ○ 设计基于游标的分页方案,替代传统OFFSET分页,解决深分页性能问题
+  ○ 实现双字段复合游标(likes_count + id),解决点赞数相同导致的排序不稳定问题,确保分页不重不漏
+  ○ 采用快照式稳定分页,生成as_of快照版本,规避热度实时变化导致的跳页/重复/缺失问题
+2. Redis多级缓存架构
+  ○ 设计分布式锁防击穿机制:热点Key过期时使用SETNX互斥锁控制回源,保护MySQL避免瞬时高并发冲击
+  ○ 实现滑动窗口热榜:按分钟分桶写入热度数据,使用ZINCRBY更新,降低单Key竞争;查询时用ZUNIONSTORE聚合时间窗生成快照,保证分页一致性
+  ○ 建立缓存自愈机制:Redis不可用时自动降级MySQL,恢复后通过请求自动回填缓存,提升系统鲁棒性
+  ○ 主动失效策略:数据变更时主动DEL相关缓存,保证数据一致性
+3. RabbitMQ异步事件驱动
+  ○ 设计Topic事件总线架构,定义like.events、comment.events、social.events、video.popularity.events四个核心Exchange
+  ○ 异步解耦点赞/评论/关注/热度更新逻辑,接口响应时间降低至50ms以内
+  ○ 实现多级降级策略:MQ发布失败时降级为直写MySQL/Redis,确保核心数据不丢失
+  ○ ACK/NACK确认机制:Worker处理成功ACK,失败NACK并重试,保证消息最终一致性
+4. 软硬鉴权兼容设计
+  ○ 实现JWTAuth强制拦截中间件和SoftJWTAuth可选鉴权中间件
+  ○ 支持匿名浏览Feed流(软鉴权)与登录态个性化功能(硬鉴权),兼顾用户体验与安全性
+5. Docker容器化部署
+  ○ 编写Docker Compose编排文件,一键启动MySQL、Redis、RabbitMQ、Backend、Worker、Frontend六类服务
+  ○ 设计可拆分运行模式:支持全链路一键启动或API/Worker独立部署,满足生产环境伸缩需求
+技术成果:
+● 支持匿名Feed流缓存(TTL 5s)和视频详情缓存(TTL 5m),接口QPS提升300%
+● 热榜采用60分钟滑动窗口聚合,高频场景响应时间从200ms降至20ms
+● 异步架构削峰填谷,系统吞吐量提升5倍,高峰期服务可用性达99.9%

@@ -1,9 +1,9 @@
 // Package feed 定义了 Feed 流的业务逻辑层
 // 职责：
-//   1. 整合数据库查询和 Redis 缓存
-//   2. 实现分布式锁防止缓存击穿
-//   3. 批量查询点赞状态
-//   4. 构建 FeedVideoItem 响应对象
+//  1. 整合数据库查询和 Redis 缓存
+//  2. 实现分布式锁防止缓存击穿
+//  3. 批量查询点赞状态
+//  4. 构建 FeedVideoItem 响应对象
 package feed
 
 import (
@@ -12,6 +12,7 @@ import (
 	rediscache "feedsystem_video_go/internal/middleware/redis"
 	"feedsystem_video_go/internal/video"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 )
@@ -37,7 +38,7 @@ func NewFeedService(repo *FeedRepository, likeRepo *video.LikeRepository, cache 
 		repo:     repo,
 		likeRepo: likeRepo,
 		cache:    cache,
-		cacheTTL: 5 * time.Second,
+		cacheTTL: 5*time.Second + time.Duration(rand.Intn(3))*time.Second,
 	}
 }
 
@@ -492,7 +493,8 @@ func (f *FeedService) ListByPopularity(ctx context.Context, limit int, reqAsOf i
 			// 快照不存在：聚合最近 60 分钟的热度数据（SUM 求和）
 			_ = f.cache.ZUnionStore(opCtx, dest, keys, "SUM")
 			// 设置快照过期时间：2 分钟（给翻页留时间）
-			_ = f.cache.Expire(opCtx, dest, 2*time.Minute)
+			randomOffset := rand.Intn(30)
+			_ = f.cache.Expire(opCtx, dest, 2*time.Minute+time.Duration(randomOffset)*time.Second)
 		}
 
 		// 4. 使用 offset 分页获取视频 ID

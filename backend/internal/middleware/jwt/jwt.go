@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +16,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+//randomTime
+func getRandomTTL(base time.Duration, maxOffset time.Duration) time.Duration {
+	return base + time.Duration(rand.Int63n(int64(maxOffset)))
+}
 
 // JWTAuth check jwt token and ensure it matches the currently stored token.
 func JWTAuth(accountRepo *account.AccountRepository, cache *rediscache.Client) gin.HandlerFunc {
@@ -100,7 +106,7 @@ func check(c *gin.Context, claims *auth.Claims, tokenString string, accountRepo 
 		cacheCtx, cancel := context.WithTimeout(c.Request.Context(), 50*time.Millisecond)
 		defer cancel()
 
-		if err := cache.SetBytes(cacheCtx, key, []byte(tokenString), 24*time.Hour); err != nil {
+		if err := cache.SetBytes(cacheCtx, key, []byte(tokenString), getRandomTTL(24*time.Hour, 30*time.Minute)); err != nil {
 			log.Printf("failed to set cache: %v", err)
 		}
 	}

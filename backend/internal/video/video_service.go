@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,13 @@ type VideoService struct {
 
 // NewVideoService 创建视频服务实例
 func NewVideoService(repo *VideoRepository, cache *rediscache.Client, popularityMQ *rabbitmq.PopularityMQ) *VideoService {
-	return &VideoService{repo: repo, cache: cache, cacheTTL: 5 * time.Minute, popularityMQ: popularityMQ}
+	randomOffset := rand.Intn(120)  // 0-120 秒随机偏移
+	return &VideoService{
+		repo:        repo,
+		cache:       cache,
+		cacheTTL:    5*time.Minute + time.Duration(randomOffset)*time.Second,  // 5-7 分钟随机
+		popularityMQ: popularityMQ,
+}
 }
 
 // Publish 发布视频

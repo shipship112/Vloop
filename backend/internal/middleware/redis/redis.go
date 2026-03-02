@@ -50,10 +50,12 @@ func randToken(n int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// Lock 使用 SETNX 实现分布式锁
 func (c *Client) Lock(ctx context.Context, key string, ttl time.Duration) (token string, ok bool, err error) {
 	if c == nil || c.rdb == nil {
 		return "", false, nil
 	}
+	// 生成随机token(防止误删别人的锁)
 	token, err = randToken(16)
 	if err != nil {
 		return "", false, err
@@ -62,6 +64,7 @@ func (c *Client) Lock(ctx context.Context, key string, ttl time.Duration) (token
 	return token, ok, err
 }
 
+// Unlock 使用 Lua 脚本解锁
 var unlockScript = redis.NewScript(`
 if redis.call("GET", KEYS[1]) == ARGV[1] then
   return redis.call("DEL", KEYS[1])
@@ -74,6 +77,7 @@ func (c *Client) Unlock(ctx context.Context, key string, token string) error {
 	if c == nil || c.rdb == nil {
 		return nil
 	}
+	// 只有token匹配时才删除,防止误删
 	_, err := unlockScript.Run(ctx, c.rdb, []string{key}, token).Result()
 	return err
 }

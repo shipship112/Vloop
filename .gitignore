@@ -40,3 +40,4 @@ picture/
 
 #markdown
 *.md
+!README.md

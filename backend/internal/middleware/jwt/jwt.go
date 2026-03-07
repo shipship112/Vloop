@@ -102,6 +102,7 @@ func check(c *gin.Context, claims *auth.Claims, tokenString string, accountRepo 
 		return
 	}
 
+	//数据库查到的数据回写redis
 	if cache != nil {
 		cacheCtx, cancel := context.WithTimeout(c.Request.Context(), 50*time.Millisecond)
 		defer cancel()

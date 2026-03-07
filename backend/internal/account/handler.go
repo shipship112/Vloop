@@ -61,8 +61,9 @@ func (h *AccountHandler) Rename(c *gin.Context) {
 		  // 未登录，返回400错误
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
+	
 	}
-	 
+	
     // 3. 调用Service层处理改名逻辑
     // Service层会：
     // - 生成新的JWT Token（因为用户名变了）

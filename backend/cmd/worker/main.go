@@ -156,10 +156,11 @@ func main() {
 
 	// 创建关注 Worker（处理用户关注/取关事件）
 	repo := social.NewSocialRepository(sqlDB)
-	socialWorker := worker.NewSocialWorker(ch, repo, socialQueue)
+	videoRepo:=video.NewVideoRepository(sqlDB)
+	socialWorker := worker.NewSocialWorker(ch, repo, videoRepo,socialQueue)
 
 	// 创建点赞 Worker（处理点赞/取消点赞事件）
-	videoRepo := video.NewVideoRepository(sqlDB)
+	//videoRepo := video.NewVideoRepository(sqlDB)
 	likeRepo := video.NewLikeRepository(sqlDB)
 	likeWorker := worker.NewLikeWorker(ch, likeRepo, videoRepo, likeQueue)
 

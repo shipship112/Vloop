@@ -6,6 +6,7 @@ import (
 	"errors"
 	"feedsystem_video_go/internal/middleware/rabbitmq"
 	"feedsystem_video_go/internal/social"
+	"feedsystem_video_go/internal/video"
 	"log"
 
 	"github.com/go-sql-driver/mysql"
@@ -15,11 +16,12 @@ import (
 type SocialWorker struct {
 	ch    *amqp.Channel
 	repo  *social.SocialRepository
+	videoRepo *video.VideoRepository
 	queue string
 }
 
-func NewSocialWorker(ch *amqp.Channel, repo *social.SocialRepository, queue string) *SocialWorker {
-	return &SocialWorker{ch: ch, repo: repo, queue: queue}
+func NewSocialWorker(ch *amqp.Channel, repo *social.SocialRepository, videoRepo *video.VideoRepository,queue string) *SocialWorker {
+	return &SocialWorker{ch: ch, repo: repo,videoRepo: videoRepo ,queue: queue}
 }
 
 func (w *SocialWorker) Run(ctx context.Context) error {
@@ -82,19 +84,52 @@ func (w *SocialWorker) process(ctx context.Context, body []byte) error {
 			FollowerID: evt.FollowerID,
 			VloggerID:  evt.VloggerID,
 		})
-		if err == nil {
+		if err!=nil{
+			var mysqlErr *mysql.MySQLError
+			if errors.As(err,&mysqlErr) && mysqlErr.Number==1062{
+				return nil
+			}
+			return err
+		}
+		// 查询被关注者的最新视频并更新热度（+10）
+		latestVideo, err := w.videoRepo.GetLatestByAuthorID(ctx, evt.VloggerID)
+		if err != nil {
+			log.Printf("social worker: failed to get latest video for vlogger %d: %v", evt.VloggerID, err)
 			return nil
 		}
-		var mysqlErr *mysql.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-			return nil
+
+		if latestVideo != nil {
+			if err := w.videoRepo.ChangePopularity(ctx, latestVideo.ID, 10); err != nil {
+				log.Printf("social worker: failed to update popularity for video %d: %v", latestVideo.ID, err)
+			}
 		}
-		return err
+
+	  return nil
+
 	case "unfollow":
-		return w.repo.Unfollow(ctx, &social.Social{
-			FollowerID: evt.FollowerID,
-			VloggerID:  evt.VloggerID,
-		})
+	err := w.repo.Unfollow(ctx, &social.Social{
+		FollowerID: evt.FollowerID,
+		VloggerID:  evt.VloggerID,
+	})
+	if err != nil {
+		return err
+	}
+
+	// 查询被关注者的最新视频并更新热度（-10）
+	latestVideo, err := w.videoRepo.GetLatestByAuthorID(ctx, evt.VloggerID)
+	if err != nil {
+		log.Printf("social worker: failed to get latest video for vlogger %d: %v", evt.VloggerID, err)
+		return nil
+	}
+
+	if latestVideo != nil {
+		if err := w.videoRepo.ChangePopularity(ctx, latestVideo.ID, -10); err != nil {
+			log.Printf("social worker: failed to update popularity for video %d: %v", latestVideo.ID, err)
+		}
+	}
+
+	return nil
+
 	default:
 		return nil
 	}

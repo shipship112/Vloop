@@ -150,3 +150,26 @@ func (vr *VideoRepository) ChangePopularity(ctx context.Context, id uint, change
 	}
 	return nil
 }
+
+// GetLatestByAuthorID 查询指定作者的最新视频
+// 返回按创建时间倒序的第一条视频
+// 参数：
+//   - ctx: 上下文
+//   - authorID: 作者ID
+// 返回：
+//   - *Video: 最新视频对象（如果没有则返回nil）
+//   - error: 错误信息
+func (vr *VideoRepository) GetLatestByAuthorID(ctx context.Context,authorID uint)(*Video,error){
+	var video Video
+	err:=vr.db.WithContext(ctx).
+			 Where("author_id = ?",authorID).
+			 Order("create_time desc").
+			 First(&video).Error
+	if err!=nil{
+		if errors.Is(err,gorm.ErrRecordNotFound){
+			return nil,nil //说明作者没有视频，返回nil，非err
+		}
+		return nil,err
+	}
+	return &video,nil
+}
